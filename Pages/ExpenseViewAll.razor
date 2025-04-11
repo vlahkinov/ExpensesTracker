@@ -1,0 +1,311 @@
+@page "/expenses"
+@using System.Net.Http.Json
+@using System.Text.Json
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+<div class="container mt-5">
+    <div class="card app-card animated-fade-in">
+        <div class="card-header bg-primary text-white py-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="page-title m-0"><i class="bi bi-cash-coin me-2"></i>Expense Manager</h2>
+                <a href="/" class="btn btn-outline-light btn-app"><i class="bi bi-house-door me-1"></i>Home</a>
+            </div>
+        </div>
+        
+        <div class="card-body p-4">
+            @if (errorMessage != null)
+            {
+                <div class="alert alert-danger shadow-sm" role="alert">
+                    <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error!</h4>
+                    <p class="mb-0">@errorMessage</p>
+                </div>
+            }
+            else if (expenses == null)
+            {
+                <div class="d-flex justify-content-center py-5">
+                    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            }
+            else if (!expenses.Any())
+            {
+                <div class="alert alert-info shadow-sm" role="alert">
+                    <h4 class="alert-heading"><i class="bi bi-info-circle-fill me-2"></i>No Expenses</h4>
+                    <p>You haven't recorded any expenses yet. Start by creating a new expense.</p>
+                </div>
+                <div class="text-center mt-4">
+                    <a href="/expenses/new" class="btn btn-success btn-lg btn-app px-4">
+                        <i class="bi bi-plus-circle me-2"></i>Create New Expense
+                    </a>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Title</th>
+                                <th>Category</th>
+                                <th>Amount</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var expense in expenses)
+                            {
+                                <tr>
+                                    <td>
+                                        <span class="fw-medium">@expense.Title</span>
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(expense.CategoryName))
+                                        {
+                                            <span class="badge bg-secondary">@expense.CategoryName</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td class="expense-amount">$@expense.Amount.ToString("F2")</td>
+                                    <td class="text-end">
+                                        <div class="btn-group" role="group">
+                                            <button @onclick="() => ViewDetails(expense.Id)" class="btn btn-outline-primary btn-app me-1">
+                                                <i class="bi bi-eye me-1"></i> View
+                                            </button>
+                                            <button @onclick="() => PrepareDelete(expense)" class="btn btn-outline-danger btn-app">
+                                                <i class="bi bi-trash me-1"></i> Delete
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+        <div class="card-footer bg-white py-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="expense-count">
+                    <i class="bi bi-receipt me-2"></i>Total Expenses: @(expenses?.Count() ?? 0)
+                </span>
+                <a href="/expenses/new" class="btn btn-success btn-app">
+                    <i class="bi bi-plus-lg me-1"></i>New Expense
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (expenseToDelete != null)
+{
+    <div class="modal fade show" style="display: block; background-color: rgba(0,0,0,0.5);" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Delete</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CancelDelete" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="d-flex flex-column align-items-center text-center mb-3">
+                        <div class="display-1 text-danger mb-3">
+                            <i class="bi bi-trash"></i>
+                        </div>
+                        <h4>Delete Expense</h4>
+                        <div class="text-muted mb-4">This action cannot be undone</div>
+                    </div>
+                    <div class="alert alert-secondary">
+                        <div class="d-flex justify-content-between">
+                            <span class="fw-medium">Title:</span>
+                            <span>@expenseToDelete.Title</span>
+                        </div>
+                        <div class="d-flex justify-content-between mt-2">
+                            <span class="fw-medium">Amount:</span>
+                            <span class="text-success fw-bold">$@expenseToDelete.Amount.ToString("F2")</span>
+                        </div>
+                        @if (!string.IsNullOrEmpty(expenseToDelete.CategoryName))
+                        {
+                            <div class="d-flex justify-content-between mt-2">
+                                <span class="fw-medium">Category:</span>
+                                <span>@expenseToDelete.CategoryName</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-app" @onclick="CancelDelete">
+                        <i class="bi bi-x-lg me-1"></i>Cancel
+                    </button>
+                    <button type="button" class="btn btn-danger btn-app" @onclick="ConfirmDelete" disabled="@isDeleting">
+                        @if (isDeleting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                            <span>Deleting...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-trash me-1"></i><span>Delete Expense</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // Simplified local DTO class that avoids DateTime issues
+    private class ExpenseDto
+    {
+        public int Id { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public decimal Amount { get; set; }
+        public int CategoryId { get; set; }
+        public string? CategoryName { get; set; }
+        // Date property is intentionally omitted to avoid serialization issues
+    }
+
+    private IEnumerable<ExpenseDto>? expenses;
+    private string? errorMessage;
+    private ExpenseDto? expenseToDelete;
+    private bool isDeleting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadExpenses();
+    }
+
+    private async Task LoadExpenses()
+    {
+        try
+        {
+            // Use a direct HTTP GET and parse the response manually
+            var response = await Http.GetAsync("api/Expense");
+            if (response.IsSuccessStatusCode)
+            {
+                // Get the raw JSON string
+                var jsonString = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"API Response: {jsonString}");
+                
+                // Create a manual list to parse into
+                expenses = new List<ExpenseDto>();
+                
+                // Parse JSON manually using System.Text.Json
+                using (JsonDocument doc = JsonDocument.Parse(jsonString))
+                {
+                    JsonElement root = doc.RootElement;
+                    
+                    // Only process if we have an array
+                    if (root.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (JsonElement expenseElement in root.EnumerateArray())
+                        {
+                            try
+                            {
+                                var expense = new ExpenseDto
+                                {
+                                    Id = expenseElement.GetProperty("id").GetInt32(),
+                                    Title = expenseElement.GetProperty("title").GetString() ?? string.Empty,
+                                    Amount = expenseElement.GetProperty("amount").GetDecimal(),
+                                    
+                                    // Safely get optional properties
+                                    Description = expenseElement.TryGetProperty("description", out var descProp) && 
+                                                 descProp.ValueKind != JsonValueKind.Null ? descProp.GetString() : null,
+                                                 
+                                    CategoryId = expenseElement.TryGetProperty("categoryId", out var catIdProp) ? 
+                                                catIdProp.GetInt32() : 0,
+                                                
+                                    CategoryName = expenseElement.TryGetProperty("categoryName", out var catNameProp) && 
+                                                  catNameProp.ValueKind != JsonValueKind.Null ? catNameProp.GetString() : null
+                                    
+                                    // Skip the Date property that's causing problems
+                                };
+                                
+                                // Add to our collection
+                                ((List<ExpenseDto>)expenses).Add(expense);
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.Error.WriteLine($"Error parsing expense: {ex.Message}");
+                            }
+                        }
+                    }
+                }
+                
+                Console.WriteLine($"Successfully retrieved {expenses.Count()} expenses");
+            }
+            else
+            {
+                errorMessage = $"Error: {response.StatusCode} - {response.ReasonPhrase}";
+                Console.Error.WriteLine(errorMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading expenses: {ex.Message}";
+            Console.Error.WriteLine(errorMessage);
+            Console.Error.WriteLine($"Exception details: {ex}");
+        }
+    }
+
+    private void ViewDetails(int id)
+    {
+        // This will be implemented later as mentioned in requirements
+        NavigationManager.NavigateTo($"/expenses/{id}");
+    }
+    
+    private void PrepareDelete(ExpenseDto expense)
+    {
+        expenseToDelete = expense;
+        StateHasChanged();
+    }
+    
+    private void CancelDelete()
+    {
+        expenseToDelete = null;
+        StateHasChanged();
+    }
+    
+    private async Task ConfirmDelete()
+    {
+        if (expenseToDelete == null) return;
+        
+        isDeleting = true;
+        
+        try
+        {
+            var response = await Http.DeleteAsync($"api/Expense/{expenseToDelete.Id}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                // Remove from local list
+                if (expenses != null)
+                {
+                    expenses = expenses.Where(e => e.Id != expenseToDelete.Id).ToList();
+                }
+                expenseToDelete = null;
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Error deleting expense: {response.StatusCode} - {errorContent}";
+                Console.Error.WriteLine(errorMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+            Console.Error.WriteLine($"Exception during delete: {ex}");
+        }
+        finally
+        {
+            isDeleting = false;
+            StateHasChanged();
+        }
+    }
+} 

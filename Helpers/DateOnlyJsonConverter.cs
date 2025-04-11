@@ -18,10 +18,26 @@ namespace ExpenseTracker
                 {
                     return date;
                 }
+                
+                // Try default DateTime parsing for string
+                if (!string.IsNullOrEmpty(dateString) && 
+                    DateTime.TryParse(dateString, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsedDate))
+                {
+                    return parsedDate;
+                }
+                
+                // If we can't parse it, return default
+                return default;
+            }
+            else if (reader.TokenType == JsonTokenType.Number)
+            {
+                // Handle numeric timestamps if needed
+                long ticks = reader.GetInt64();
+                return new DateTime(ticks);
             }
             
-            // Fallback to default DateTime parsing
-            return JsonSerializer.Deserialize<DateTime>(ref reader, options);
+            // For any other token type, just return default
+            return default;
         }
 
         public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options)
