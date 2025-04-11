@@ -18,8 +18,8 @@ namespace ExpenseTracker.Profiles
                 .ReverseMap()
                 .ForMember(dest => dest.Category, opt => opt.Ignore());
                 
-            CreateMap<ExpenseCreateDto, Expense>();
-            CreateMap<ExpenseUpdateDto, Expense>();
+            CreateMap<ExpenseCreateDto, Expense>().ReverseMap();
+            CreateMap<ExpenseUpdateDto, Expense>().ReverseMap();
         }
     }
 } 

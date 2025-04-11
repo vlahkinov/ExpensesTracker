@@ -1,0 +1,17 @@
+@namespace ExpenseTracker.Pages
+
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" />
+    </Found>
+    <NotFound>
+        <PageTitle>Not found</PageTitle>
+        <div class="container mt-5">
+            <div class="alert alert-danger">
+                <h3>Sorry, there's nothing at this address.</h3>
+                <p>The page you requested could not be found.</p>
+                <a class="btn btn-primary" href="/">Return Home</a>
+            </div>
+        </div>
+    </NotFound>
+</Router> 

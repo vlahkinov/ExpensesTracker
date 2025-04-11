@@ -7,8 +7,21 @@ using ExpenseTracker.Services;
 using Microsoft.OpenApi.Models;
 using System.IO;
 using System.Text.Json.Serialization;
+using System.Net.Http.Json;
+using Microsoft.AspNetCore.Components;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add CORS policy
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
 
 // Add services to the container.
 builder.Services.AddControllers()
@@ -17,6 +30,21 @@ builder.Services.AddControllers()
         // Set the JSON serialization options for dates
         options.JsonSerializerOptions.Converters.Add(new DateOnlyJsonConverter());
     });
+
+// Add Blazor Server services
+builder.Services.AddRazorPages();
+builder.Services.AddServerSideBlazor();
+
+// Add HttpClient for API calls
+builder.Services.AddHttpClient();
+
+// Use the same host for API calls that the app is running on
+builder.Services.AddScoped(sp => 
+{
+    // Get IHttpContextAccessor to determine the current request
+    var navigationManager = sp.GetRequiredService<NavigationManager>();
+    return new HttpClient { BaseAddress = new Uri(navigationManager.BaseUri) };
+});
 
 // Configure Swagger with XML comments
 builder.Services.AddEndpointsApiExplorer();
@@ -61,9 +89,19 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseRouting();
+
+// Use CORS middleware
+app.UseCors();
 
 app.UseAuthorization();
 
+// Map Blazor Hub
+app.MapBlazorHub();
+app.MapFallbackToPage("/_Host");
+
+// Map API Controllers
 app.MapControllers();
 
 // Create database if it doesn't exist
